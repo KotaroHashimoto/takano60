@@ -13,6 +13,7 @@ input int Magic_Number = 1;
 input double Entry_Lot = 0.1;
 extern double TP_pips = 30;
 extern double Trail_pips = 20;
+extern double Cross_Det_Percentage = 18;
 
 string thisSymbol;
 int lastExitHour;
@@ -32,14 +33,17 @@ int getOrdersTotal() {
   return count;
 }
 
-bool readyToEnter(double& bottom, double& upper) {
+bool readyToEnter(double& bottom, double& upper, double& open, double& close) {
 
   double low2 = iLow(thisSymbol, PERIOD_H1, 2);
   double low1 = iLow(thisSymbol, PERIOD_H1, 1);
   double high2 = iHigh(thisSymbol, PERIOD_H1, 2);
   double high1 = iHigh(thisSymbol, PERIOD_H1, 1);
   
-  if(low1 < low2 && high2 < high1) {
+  open = iOpen(thisSymbol, PERIOD_H1, 1);
+  close = iClose(thisSymbol, PERIOD_H1, 1);
+
+  if(low1 < low2 && high2 < high1 && Cross_Det_Percentage * (high1 - low1) < MathAbs(open - close)) {
     bottom = low1;
     upper = high1;
     return True;
@@ -63,6 +67,8 @@ int OnInit()
   
   TP_pips *= 10.0 * Point;
   Trail_pips *= 10.0 * Point;
+  
+  Cross_Det_Percentage *= 0.01;
    
 //---
    return(INIT_SUCCEEDED);
@@ -91,14 +97,14 @@ void OnTick()
       lastExitHour = -1;;
     }
   
-    double bottom, upper;
-    if(readyToEnter(bottom, upper)) {
-    
-      if(upper < Bid) {
+    double bottom, upper, open, close;
+    if(readyToEnter(bottom, upper, open, close)) {
+
+      if(upper < Bid && open < close) {
         int ticket = OrderSend(thisSymbol, OP_BUY, Entry_Lot, NormalizeDouble(Ask, Digits), 3, 
                                NormalizeDouble(bottom, Digits), NormalizeDouble(Ask + TP_pips, Digits), NULL, Magic_Number);
       }
-      else if(Ask < bottom) {
+      else if(Ask < bottom && open > close) {
         int ticket = OrderSend(Symbol(), OP_SELL, Entry_Lot, NormalizeDouble(Bid, Digits), 3, 
                                NormalizeDouble(upper, Digits), NormalizeDouble(Bid - TP_pips, Digits), NULL, Magic_Number);
       }
